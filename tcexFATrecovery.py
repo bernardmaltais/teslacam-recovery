@@ -27,17 +27,20 @@ f = open(sys.argv[1], 'rb')
 
 bootSector = f.read(512)
 
-bytesPerSector,       = struct.unpack("<H", bootSector[0x0B:0x0D])
-sectorsPerCluster,    = struct.unpack("<B", bootSector[0x0D])
-reservedSectors,      = struct.unpack("<H", bootSector[0x0E:0x10])
-numberOfFATs,         = struct.unpack("<B", bootSector[0x10])
-maxRootDirEntries,    = struct.unpack("<H", bootSector[0x11:0x13])
-totalSectors,         = struct.unpack("<H", bootSector[0x13:0x15])
-sectorsPerFAT,        = struct.unpack("<I", bootSector[0x24:0x28])
-rootDirectoryCluster, = struct.unpack("<I", bootSector[0x2c:0x30])
+bytesPerSectorShift,       = struct.unpack("<B", bootSector[0x6C]) # 1 byte, The number of places one would need to shift to translate bytes to sectors or sectors to bytes
+sectorsPerClusterShift,    = struct.unpack("<B", bootSector[0x6D]) # 1 byte, Similar to the above, except used to calculate sectors per cluster.
+reservedSectors,           = struct.unpack("<I", bootSector[0x50:0x54]) # FATOffset, 4 bytes, offset in sectors from the start of the partition to the first FAT
+numberOfFATs,              = struct.unpack("<B", bootSector[0x6E]) # 1 byte
+#maxRootDirEntries,        = struct.unpack("<H", bootSector[0x11:0x13])
+totalSectors,              = struct.unpack("<Q", bootSector[0x48:0x50]) # VolumeLength in Sectors, 8 bytes
+sectorsPerFAT,             = struct.unpack("<I", bootSector[0x54:0x58]) # FATLength, 4 bytes
+#rootDirectoryCluster,      = struct.unpack("<I", bootSector[0x2c:0x30])
+bytesPerSector = 2 ** bytesPerSectorShift
+sectorsPerCluster = 2 ** sectorsPerClusterShift
+maxRootDirEntries = 0
 
-if totalSectors == 0:
-    totalSectors, = struct.unpack("<I", bootSector[0x20:0x24])
+# if totalSectors == 0:
+#     totalSectors, = struct.unpack("<I", bootSector[0x20:0x24])
 
 totalClusters = totalSectors/sectorsPerCluster
 bytesPerCluster = bytesPerSector*sectorsPerCluster
@@ -50,11 +53,11 @@ print 'Maximum root directory entries: %d' % maxRootDirEntries
 print 'Total sectors: %d' % totalSectors
 print 'Total clusters: %d' % totalClusters
 print 'Sectors per FAT: %d' % sectorsPerFAT
-print 'Root Directory Cluster: %d' % rootDirectoryCluster
+#print 'Root Directory Cluster: %d' % rootDirectoryCluster
 
 
 def sect2byte(sect):
-    return sect*bytesPerSector
+    return sect << bytesPerSectorShift
 
 
 def clust2byte(clust):
@@ -180,9 +183,9 @@ def readDirectory(directoryCluster, tabs, path='/', root=False):
             break
 
 
-def extractMP4s(startCluster, endCluster, maxSize):
+def extractTeslaCam(startCluster, endCluster, maxSize):
     try:
-        os.mkdir('%s/mp4s' % (sys.argv[2]))
+        os.mkdir('%s/TeslaCam' % (sys.argv[2]))
     except OSError:
         pass
     cluster = startCluster
@@ -193,7 +196,7 @@ def extractMP4s(startCluster, endCluster, maxSize):
         header = f.read(12)
         if header == '\0\0\0 ftypmp42':
             print 'Found mp4 at cluster %d' % (cluster)
-            fout = open('%s/mp4s/%d.mp4' % (sys.argv[2], cluster), 'wb')
+            fout = open('%s/TeslaCam/%d.mp4' % (sys.argv[2], cluster), 'wb')
             curCluster = cluster
             bytesWritten = 0
             while True:
@@ -211,13 +214,13 @@ def extractMP4s(startCluster, endCluster, maxSize):
 
 
 # If you want to do a faster, more targeted search, you can uncomment these lines and use the output
-# to specify a cluster range to extractMP4s below:
+# to specify a cluster range to extractTeslaCam below:
 
 #print 'Reading directories...'
 #readDirectory(rootDirectoryCluster, 1)
 
-print 'Finding mp4s...'
-extractMP4s(0, totalClusters, 40000000)
+print 'Finding TeslaCam...'
+extractTeslaCam(0, totalClusters, 40000000)
 
 print
 
